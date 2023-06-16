@@ -6,6 +6,8 @@ bool TableHeap::InsertTuple(Row &row, Transaction *txn) {
   auto cur_page = static_cast<TablePage *>(buffer_pool_manager_->FetchPage(first_page_id_));
   if(cur_page == nullptr) return false;
   cur_page->WLatch();
+  //RowId rid(cur_page->GetPageId(), i);
+  //row.SetRowId(rid);
   while(!cur_page->InsertTuple(row, schema_, txn, lock_manager_, log_manager_)){
     auto next_page_id = cur_page->GetNextPageId();
     if(next_page_id != INVALID_PAGE_ID){
@@ -129,7 +131,6 @@ TableIterator TableHeap::Begin(Transaction *txn) {
   RowId rid;
   page->GetFirstTupleRid(&rid);
   Row row(rid);
-  page->GetTuple(&row, schema_, txn, lock_manager_);
   page->RUnlatch();
   buffer_pool_manager_->UnpinPage(first_page_id_, false);
   return TableIterator(this, row, txn);

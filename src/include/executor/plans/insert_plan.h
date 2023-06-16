@@ -26,7 +26,7 @@ class InsertPlanNode : public AbstractPlanNode {
   /** @return The type of the plan node */
   PlanType GetType() const override { return PlanType::Insert; }
 
-  /** @return The identifier of the table which rows are inserted intol*/
+  /** @return The identifier of the table which rows are inserted into */
   std::string GetTableName() const { return table_name_; }
 
   /** @return the child plan providing rows to be inserted */

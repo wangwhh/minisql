@@ -3,7 +3,7 @@
 #include <dirent.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-
+#include <fstream>
 #include <chrono>
 
 #include "common/result_writer.h"
@@ -347,6 +347,7 @@ dberr_t ExecuteEngine::ExecuteCreateTable(pSyntaxNode ast, ExecuteContext *conte
   auto ptr = ast->child_->next_;
   vector<Column *>columns;
   vector<string> primary_keys;
+  vector<string> unique_index;
 
   while(ptr != nullptr){
     if(ptr->type_ == kNodeColumnDefinitionList){
@@ -360,6 +361,8 @@ dberr_t ExecuteEngine::ExecuteCreateTable(pSyntaxNode ast, ExecuteContext *conte
         if(col_def_ptr->val_ != nullptr){
           if(strcmp(col_def_ptr->val_, "unique") == 0){
             is_unique = true;
+            col_name = col_def_ptr->child_->val_;
+            unique_index.push_back(col_name);
           }else if(strcmp(col_def_ptr->val_, "primary keys") == 0){  // 主键
             auto primary_key_ptr = col_def_ptr->child_;
             while(primary_key_ptr != nullptr){
@@ -390,7 +393,6 @@ dberr_t ExecuteEngine::ExecuteCreateTable(pSyntaxNode ast, ExecuteContext *conte
           return DB_FAILED;
         }
 
-        // 这里index是主键才有吗？
         Column *col;
         if(type == kTypeChar){
           col = new Column(col_name, type, char_num, i++, false, is_unique);
@@ -410,6 +412,9 @@ dberr_t ExecuteEngine::ExecuteCreateTable(pSyntaxNode ast, ExecuteContext *conte
   // 为primary创建索引
   if(ret == DB_SUCCESS && !primary_keys.empty()){
     context->GetCatalog()->CreateIndex(table_name, "primary", primary_keys, context->GetTransaction(), index_info, "bptree");
+  }
+  if(ret == DB_SUCCESS && !unique_index.empty()){
+    context->GetCatalog()->CreateIndex(table_name, "unique", unique_index, context->GetTransaction(), index_info, "bptree");
   }
   end_time = clock();
   if(ret == DB_SUCCESS)
@@ -594,11 +599,62 @@ dberr_t ExecuteEngine::ExecuteTrxRollback(pSyntaxNode ast, ExecuteContext *conte
 /**
  * TODO: Student Implement
  */
+extern "C" {
+int yyparse(void);
+
+#include "parser/minisql_lex.h"
+#include "parser/parser.h"
+}
 dberr_t ExecuteEngine::ExecuteExecfile(pSyntaxNode ast, ExecuteContext *context) {
 #ifdef ENABLE_EXECUTE_DEBUG
   LOG(INFO) << "ExecuteExecfile" << std::endl;
 #endif
-  return DB_FAILED;
+  ifstream fin;
+  fin.open(ast->child_->val_, ios::in);
+  if(!fin.is_open()){
+    cout << "Cannot open the file!" << endl;
+    return DB_FAILED;
+  }
+  char cmd[1024];
+  while(fin.getline(cmd, 1024, '\r')) // 一行行sql语句执行
+  {
+      // create buffer for sql input
+      YY_BUFFER_STATE bp = yy_scan_string(cmd);
+      if (bp == nullptr) {
+        LOG(ERROR) << "Failed to create yy buffer state." << std::endl;
+        exit(1);
+      }
+      yy_switch_to_buffer(bp);
+
+      // init parser module
+      MinisqlParserInit();
+
+      // parse
+      yyparse();
+
+      // parse result handle
+      if (MinisqlParserGetError()) {
+        // error
+        printf("%s\n", MinisqlParserGetErrorMessage());
+      } else {
+        // Comment them out if you don't need to debug the syntax tree
+        printf("[INFO] Sql syntax parse ok!\n");
+      }
+
+      auto result = Execute(MinisqlGetParserRootNode());
+
+      // clean memory after parse
+      MinisqlParserFinish();
+      yy_delete_buffer(bp);
+      yylex_destroy();
+
+      // quit condition
+      ExecuteInformation(result);
+      if (result == DB_QUIT) {
+        break;
+      }
+    }
+  return DB_SUCCESS;
 }
 
 dberr_t ExecuteEngine::ExecuteQuit(pSyntaxNode ast, ExecuteContext *context) {

@@ -27,6 +27,8 @@ bool TablePage::InsertTuple(Row &row, Schema *schema, Transaction *txn, LockMana
   if (i == GetTupleCount() && GetFreeSpaceRemaining() < serialized_size + SIZE_TUPLE) {
     return false;
   }
+  // Set rid
+  row.SetRowId(RowId(GetTablePageId(), i));
   // Otherwise we claim available free space..
   SetFreeSpacePointer(GetFreeSpacePointer() - serialized_size);
   uint32_t __attribute__((unused)) write_bytes = row.SerializeTo(GetData() + GetFreeSpacePointer(), schema);
@@ -35,8 +37,6 @@ bool TablePage::InsertTuple(Row &row, Schema *schema, Transaction *txn, LockMana
   // Set the tuple.
   SetTupleOffsetAtSlot(i, GetFreeSpacePointer());
   SetTupleSize(i, serialized_size);
-  // Set rid
-  row.SetRowId(RowId(GetTablePageId(), i));
   if (i == GetTupleCount()) {
     SetTupleCount(GetTupleCount() + 1);
   }
