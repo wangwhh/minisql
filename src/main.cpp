@@ -32,6 +32,7 @@ void InputCommand(char *input, const int len) {
 }
 
 int main(int argc, char **argv) {
+  setbuf(stdout, NULL);
   InitGoogleLog(argv[0]);
   // command buffer
   const int buf_size = 1024;
@@ -42,7 +43,7 @@ int main(int argc, char **argv) {
   TreeFileManagers syntax_tree_file_mgr("syntax_tree_");
   uint32_t syntax_tree_id = 0;
 
-  while (1) {
+  while (true) {
     // read from buffer
     InputCommand(cmd, buf_size);
     // create buffer for sql input

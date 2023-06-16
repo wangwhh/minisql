@@ -235,103 +235,337 @@ void ExecuteEngine::ExecuteInformation(dberr_t result) {
       break;
   }
 }
-/**
- * TODO: Student Implement
- */
+
 dberr_t ExecuteEngine::ExecuteCreateDatabase(pSyntaxNode ast, ExecuteContext *context) {
 #ifdef ENABLE_EXECUTE_DEBUG
   LOG(INFO) << "ExecuteCreateDatabase" << std::endl;
 #endif
-  return DB_FAILED;
+  __clock_t start_time, end_time;
+  start_time = clock();
+  string db_name = ast->child_->val_;
+  DBStorageEngine *db = new DBStorageEngine(db_name, true);
+  if(dbs_.find(db_name) != dbs_.end()){
+    cout << "Can't create database '" << db_name << "';" ;
+    return DB_ALREADY_EXIST;
+  }
+  dbs_.insert(pair<string, DBStorageEngine *>(db_name, db));
+  end_time = clock();
+  cout << "Successfully create database '" << db_name << "' in" << (double)(end_time-start_time)/CLOCKS_PER_SEC << "sec." << endl;
+  return DB_SUCCESS;
 }
 
-/**
- * TODO: Student Implement
- */
 dberr_t ExecuteEngine::ExecuteDropDatabase(pSyntaxNode ast, ExecuteContext *context) {
 #ifdef ENABLE_EXECUTE_DEBUG
   LOG(INFO) << "ExecuteDropDatabase" << std::endl;
 #endif
- return DB_FAILED;
+  __clock_t start_time, end_time;
+  start_time = clock();
+  string db_name = ast->child_->val_;
+
+  if(dbs_.find(db_name) == dbs_.end()){
+    cout << "Can't drop database '" << db_name << "'; ";
+    return DB_NOT_EXIST;
+  }
+  if(db_name == current_db_){
+    current_db_ = "";
+  }
+  DBStorageEngine *db = dbs_[db_name];
+  delete db;  // 析构
+  dbs_.erase(db_name);
+  end_time = clock();
+  cout << "Successfully drop database" << db_name << "in" << (double)(end_time - start_time)/CLOCKS_PER_SEC << "sec." << endl;
+  return DB_FAILED;
 }
 
-/**
- * TODO: Student Implement
- */
 dberr_t ExecuteEngine::ExecuteShowDatabases(pSyntaxNode ast, ExecuteContext *context) {
 #ifdef ENABLE_EXECUTE_DEBUG
   LOG(INFO) << "ExecuteShowDatabases" << std::endl;
 #endif
-  return DB_FAILED;
+  clock_t start_time, end_time;
+  start_time = clock();
+  cout << "*====================*" << endl;
+  cout << "|  Database          |" << endl;
+  cout << "+--------------------+" << endl;
+  for(const auto& it : dbs_){
+    cout << "|  " << setw(18) << left << it.first << "|" << endl;
+  }
+  cout << "+====================+" << endl;
+  end_time = clock();
+  cout << dbs_.size() << " rows in set (" << (double)(end_time - start_time) / CLOCKS_PER_SEC << " sec)" << endl;
+  return DB_SUCCESS;
 }
 
-/**
- * TODO: Student Implement
- */
 dberr_t ExecuteEngine::ExecuteUseDatabase(pSyntaxNode ast, ExecuteContext *context) {
 #ifdef ENABLE_EXECUTE_DEBUG
   LOG(INFO) << "ExecuteUseDatabase" << std::endl;
 #endif
-  return DB_FAILED;
+  string db_name = ast->child_->val_;
+  if(dbs_.find(db_name) == dbs_.end()){
+    cout << "Unknown database '" << db_name << "'; " << endl;
+    return DB_NOT_EXIST;
+  }
+  current_db_ = db_name;
+  cout << "Database changed. Current database: '" << db_name << "'. "<<endl;
+  return DB_SUCCESS;
 }
 
-/**
- * TODO: Student Implement
- */
 dberr_t ExecuteEngine::ExecuteShowTables(pSyntaxNode ast, ExecuteContext *context) {
 #ifdef ENABLE_EXECUTE_DEBUG
   LOG(INFO) << "ExecuteShowTables" << std::endl;
 #endif
-  return DB_FAILED;
+  clock_t start_time, end_time;
+  start_time = clock(); //计时开始
+  if(current_db_.empty())
+  {
+    cout << "You haven't chosen a database!" << endl;
+    return DB_FAILED;
+  }
+  cout << "+====================+" << endl;
+  cout << "| Tables in " << setw(8) << left << current_db_ << " |" << endl;
+  cout << "+--------------------+" << endl;
+  std::vector<TableInfo*> tables;
+  dbs_[current_db_]->catalog_mgr_->GetTables(tables);
+  for(auto it : tables)
+    cout << "| " << setw(18) << left << it->GetTableName() << " |" << endl;
+  cout << "+====================+" << endl;
+  end_time = clock();
+  cout << tables.size() <<" rows in set (" << (double)(end_time - start_time) / CLOCKS_PER_SEC << " sec)" << endl;
+  return DB_SUCCESS;
 }
 
-/**
- * TODO: Student Implement
- */
 dberr_t ExecuteEngine::ExecuteCreateTable(pSyntaxNode ast, ExecuteContext *context) {
 #ifdef ENABLE_EXECUTE_DEBUG
   LOG(INFO) << "ExecuteCreateTable" << std::endl;
 #endif
-  return DB_FAILED;
+  clock_t start_time, end_time;
+  if(current_db_.empty()){
+    cout << "You haven't chosen a database!" << endl;
+    return DB_FAILED;
+  }
+  start_time = clock();
+  string table_name = ast->child_->val_;
+  auto ptr = ast->child_->next_;
+  vector<Column *>columns;
+  vector<string> primary_keys;
+
+  while(ptr != nullptr){
+    if(ptr->type_ == kNodeColumnDefinitionList){
+      int i = 1;  // 表内index
+      auto col_def_ptr = ptr->child_;
+      while(col_def_ptr != nullptr){
+        string col_name, col_type;
+        int char_num;
+        bool is_unique = false;
+        TypeId type;
+        if(col_def_ptr->val_ != nullptr){
+          if(strcmp(col_def_ptr->val_, "unique") == 0){
+            is_unique = true;
+          }else if(strcmp(col_def_ptr->val_, "primary keys") == 0){  // 主键
+            auto primary_key_ptr = col_def_ptr->child_;
+            while(primary_key_ptr != nullptr){
+              string key_name = primary_key_ptr->val_;
+              primary_keys.push_back(key_name);
+              primary_key_ptr = primary_key_ptr->next_;
+            }
+            col_def_ptr = col_def_ptr->next_;
+            continue;
+          }
+        }
+
+        col_name = col_def_ptr->child_->val_;  // 列名
+        col_type = col_def_ptr->child_->next_->val_; // 列的类型
+        if(col_type == "char"){
+          type = kTypeChar;
+          char_num =atoi(col_def_ptr->child_->next_->child_->val_);
+          if(char_num < 0 || strchr(col_def_ptr->child_->next_->child_->val_, '.') != nullptr){
+            cout << "Invalid input!" << endl;
+            return DB_FAILED;
+          }
+        }else if(col_type == "int"){
+          type = kTypeInt;
+        }else if(col_type == "float"){
+          type = kTypeFloat;
+        }else{
+          cout << "Invalid input!" << endl;
+          return DB_FAILED;
+        }
+
+        // 这里index是主键才有吗？
+        Column *col;
+        if(type == kTypeChar){
+          col = new Column(col_name, type, char_num, i++, false, is_unique);
+        }else{
+          col = new Column(col_name, type, i++, false, is_unique);
+        }
+        columns.push_back(col);
+        col_def_ptr = col_def_ptr->next_;
+      }
+    }
+    ptr = ptr->next_;
+  }
+  TableSchema *schema = new TableSchema(columns, true); // is_manage是啥，直接写成true了
+  TableInfo *table_info;
+  IndexInfo *index_info;
+  auto ret = context->GetCatalog()->CreateTable(table_name, schema, context->GetTransaction(), table_info);
+  // 为primary创建索引
+  if(ret == DB_SUCCESS && !primary_keys.empty()){
+    context->GetCatalog()->CreateIndex(table_name, "primary", primary_keys, context->GetTransaction(), index_info, "bptree");
+  }
+  end_time = clock();
+  if(ret == DB_SUCCESS)
+    cout << "Successfully create table '" << table_name << "' in " << (double)(end_time - start_time)/CLOCKS_PER_SEC << "sec." << endl;
+  return ret;
 }
 
-/**
- * TODO: Student Implement
- */
 dberr_t ExecuteEngine::ExecuteDropTable(pSyntaxNode ast, ExecuteContext *context) {
 #ifdef ENABLE_EXECUTE_DEBUG
   LOG(INFO) << "ExecuteDropTable" << std::endl;
 #endif
- return DB_FAILED;
+  clock_t start_time, end_time;
+  start_time = clock(); //计时开始
+  string table_name = ast->child_->val_;
+  if(current_db_.empty())
+  {
+    cout << "You haven't chosen a database!" << endl;
+    return DB_FAILED;
+  }
+  TableInfo *table_info = nullptr;
+  if(dbs_[current_db_]->catalog_mgr_->GetTable(table_name, table_info) == DB_TABLE_NOT_EXIST)
+  {
+    cout << "Invalid table!" << endl;
+    return DB_TABLE_NOT_EXIST;
+  }
+  dbs_[current_db_]->catalog_mgr_->DropTable(table_name);
+  end_time = clock();
+  cout << "Successfully drop table '" << table_name << "' in " << (double)(end_time - start_time) / CLOCKS_PER_SEC << "sec." << endl;
+  return DB_SUCCESS;
 }
 
-/**
- * TODO: Student Implement
- */
 dberr_t ExecuteEngine::ExecuteShowIndexes(pSyntaxNode ast, ExecuteContext *context) {
 #ifdef ENABLE_EXECUTE_DEBUG
   LOG(INFO) << "ExecuteShowIndexes" << std::endl;
 #endif
-  return DB_FAILED;
+  clock_t start_time, end_time;
+  int row_cnt = 0;
+  start_time = clock(); //计时开始
+  if(current_db_.empty())
+  {
+    cout << "You haven't chosen a database!" << endl;
+    return DB_FAILED;
+  }
+  vector<TableInfo *> tables;
+  if(context->GetCatalog()->GetTables(tables) == DB_FAILED){
+    return DB_FAILED;
+  }
+  cout << "+=========+===========+==========+==============+==============+==========+============+" << endl;
+  cout << "| Table   | Is_unique | Key_name | Seq_in_index | Column_name  | Nullable | Index_type |" << endl;
+  cout << "+---------+-----------+----------+--------------+--------------+----------+------------+" << endl;
+  for(auto table: tables){  // 遍历该数据库的所有表
+    string table_name = table->GetTableName();
+
+    vector<IndexInfo *> indexes;
+    context->GetCatalog()->GetTableIndexes(table_name, indexes);
+    for(auto index: indexes){ // 遍历表中的所有索引
+      string key_name = index->GetIndexName();  // 索引名称
+      string index_type = "bptree";
+      Schema *schema = index->GetIndexKeySchema();  // 索引的表
+      vector<Column *> columns = schema->GetColumns();
+      int seq_in_index = 1;
+      for(auto column :columns){  // 遍历索引中所有column
+        bool is_unique = column->IsUnique();
+        string col_name = column->GetName();
+        bool is_null = column->IsNullable();
+        cout << "| " << setw(8) << left << table_name
+             << "| " << setw(10) << right << is_unique
+             << "| " << setw(9) << left << key_name
+             << "| " << setw(13) << right << seq_in_index++
+             << "| " << setw(13) << left << col_name
+             << "| " << setw(9) << right << is_null
+             << "| " << setw(11) << left << index_type
+             << "|"  << endl;
+        row_cnt++;
+      }
+    }
+  }
+  cout << "+=========+===========+==========+==============+==============+==========+============+" << endl;
+  end_time = clock();
+  cout << row_cnt <<" rows in set (" << (double)(end_time - start_time) / CLOCKS_PER_SEC << " sec)" << endl;
+  return DB_SUCCESS;
 }
 
-/**
- * TODO: Student Implement
- */
 dberr_t ExecuteEngine::ExecuteCreateIndex(pSyntaxNode ast, ExecuteContext *context) {
 #ifdef ENABLE_EXECUTE_DEBUG
   LOG(INFO) << "ExecuteCreateIndex" << std::endl;
 #endif
-  return DB_FAILED;
+  clock_t start_time, end_time;
+  start_time = clock(); //计时开始
+  if(current_db_.empty())
+  {
+    cout << "You haven't chosen a database!" << endl;
+    return DB_FAILED;
+  }
+  string index_name = ast->child_->val_;
+  string table_name = ast->child_->next_->val_;
+  vector<string> index_keys;
+
+  auto index_keys_ptr = ast->child_->next_->next_->child_;
+  while(index_keys_ptr != nullptr){
+    string index_key_name = index_keys_ptr->val_;
+    index_keys.push_back(index_key_name);
+    index_keys_ptr = index_keys_ptr->next_;
+  }
+
+  auto index_type_ptr = ast->child_->next_->next_->next_;
+  string index_type = "bptree";
+  if(index_type_ptr != nullptr){
+    index_type = index_type_ptr->child_->val_;
+  }
+
+  IndexInfo *index_info;
+  auto ret = context->GetCatalog()->CreateIndex(table_name, index_name, index_keys, context->GetTransaction(), index_info, index_type);
+  if(ret == DB_TABLE_NOT_EXIST){
+    cout << "Invalid table name!" << endl;
+  }else if(ret == DB_COLUMN_NAME_NOT_EXIST){
+    cout << "Invalid column name!" << endl;
+  }else if(ret == DB_INDEX_ALREADY_EXIST){
+    cout << "Index '" << index_name << "' already exists!" << endl;
+  }else if(ret == DB_SUCCESS){
+    end_time = clock();
+    cout << "Successfully create index '" << index_name << "' in " << (double)(end_time - start_time)/CLOCKS_PER_SEC << "sec." <<endl;
+  }
+  return ret;
 }
 
 /**
- * TODO: Student Implement
+ * 框架有问题？
  */
 dberr_t ExecuteEngine::ExecuteDropIndex(pSyntaxNode ast, ExecuteContext *context) {
 #ifdef ENABLE_EXECUTE_DEBUG
   LOG(INFO) << "ExecuteDropIndex" << std::endl;
 #endif
+  clock_t start_time, end_time;
+  start_time = clock(); //计时开始
+  if(current_db_.empty())
+  {
+    cout << "You haven't chosen a database!" << endl;
+    return DB_FAILED;
+  }
+  vector<TableInfo *> tables;
+  if(context->GetCatalog()->GetTables(tables) == DB_FAILED){
+    return DB_FAILED;
+  }
+
+  string index_name = ast->child_->val_;
+  int drop_cnt = 0;
+  for(auto table : tables){
+    string table_name = table->GetTableName();
+    if(context->GetCatalog()->DropIndex(table_name, index_name) == DB_SUCCESS){
+      cout << "Drop index '" << index_name << "' on table '" << table_name << "';"<< endl;
+      drop_cnt++;
+    }
+  }
+  end_time = clock();
+  cout << "Successfully drop " << drop_cnt << "indexes in " << (double)(end_time-start_time)/CLOCKS_PER_SEC << "sec." << endl;
   return DB_FAILED;
 }
 
@@ -367,12 +601,10 @@ dberr_t ExecuteEngine::ExecuteExecfile(pSyntaxNode ast, ExecuteContext *context)
   return DB_FAILED;
 }
 
-/**
- * TODO: Student Implement
- */
 dberr_t ExecuteEngine::ExecuteQuit(pSyntaxNode ast, ExecuteContext *context) {
 #ifdef ENABLE_EXECUTE_DEBUG
   LOG(INFO) << "ExecuteQuit" << std::endl;
 #endif
- return DB_FAILED;
+  ASSERT(ast->type_ == kNodeQuit, "Unexpected node type.");
+  return DB_QUIT;
 }
