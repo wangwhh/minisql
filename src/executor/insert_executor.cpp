@@ -29,7 +29,6 @@ bool InsertExecutor::Next([[maybe_unused]] Row *row, RowId *rid) {
   //vector<vector<Field>> index_keys(index_info_.size());
   ValuesPlanNode *values_plan_node = (ValuesPlanNode *)plan_->GetChildPlan().get();
   auto values = values_plan_node->values_;
-
   for(auto value : values){
     for(auto field_ptr : value){
       Field field = field_ptr->Evaluate(row);

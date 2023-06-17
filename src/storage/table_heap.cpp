@@ -58,11 +58,11 @@ bool TableHeap::UpdateTuple(Row &row, const RowId &rid, Transaction *txn) {
   Row pre_row(rid);
   int flag = page->UpdateTuple(row, &pre_row, schema_, txn, lock_manager_, log_manager_);
   switch(flag){
-    case 0:
+    case 1:
       page->WUnlatch();
       buffer_pool_manager_->UnpinPage(page->GetPageId(), true);
       break;
-    case 1: // slotID越界，返回错误，不更新
+    case 0: // slotID越界，返回错误，不更新
       page->WUnlatch();
       buffer_pool_manager_->UnpinPage(page->GetPageId(), false);
       return false;

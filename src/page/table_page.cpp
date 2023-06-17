@@ -61,7 +61,7 @@ bool TablePage::MarkDelete(const RowId &rid, Transaction *txn, LockManager *lock
   return true;
 }
 
-bool TablePage::UpdateTuple(const Row &new_row, Row *old_row, Schema *schema, Transaction *txn,
+bool TablePage::UpdateTuple(Row new_row, Row *old_row, Schema *schema, Transaction *txn,
                             LockManager *lock_manager, LogManager *log_manager) {
   ASSERT(old_row != nullptr && old_row->GetRowId().Get() != INVALID_ROWID.Get(), "invalid old row.");
   uint32_t serialized_size = new_row.GetSerializedSize(schema);
@@ -89,6 +89,7 @@ bool TablePage::UpdateTuple(const Row &new_row, Row *old_row, Schema *schema, Tr
   memmove(GetData() + free_space_pointer + tuple_size - serialized_size, GetData() + free_space_pointer,
           tuple_offset - free_space_pointer);
   SetFreeSpacePointer(free_space_pointer + tuple_size - serialized_size);
+  new_row.SetRowId(old_row->GetRowId());
   new_row.SerializeTo(GetData() + tuple_offset + tuple_size - serialized_size, schema);
   SetTupleSize(slot_num, serialized_size);
 

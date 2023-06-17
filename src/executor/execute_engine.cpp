@@ -618,42 +618,43 @@ dberr_t ExecuteEngine::ExecuteExecfile(pSyntaxNode ast, ExecuteContext *context)
   char cmd[1024];
   while(fin.getline(cmd, 1024, '\r')) // 一行行sql语句执行
   {
-      // create buffer for sql input
-      YY_BUFFER_STATE bp = yy_scan_string(cmd);
-      if (bp == nullptr) {
-        LOG(ERROR) << "Failed to create yy buffer state." << std::endl;
-        exit(1);
-      }
-      yy_switch_to_buffer(bp);
-
-      // init parser module
-      MinisqlParserInit();
-
-      // parse
-      yyparse();
-
-      // parse result handle
-      if (MinisqlParserGetError()) {
-        // error
-        printf("%s\n", MinisqlParserGetErrorMessage());
-      } else {
-        // Comment them out if you don't need to debug the syntax tree
-        printf("[INFO] Sql syntax parse ok!\n");
-      }
-
-      auto result = Execute(MinisqlGetParserRootNode());
-
-      // clean memory after parse
-      MinisqlParserFinish();
-      yy_delete_buffer(bp);
-      yylex_destroy();
-
-      // quit condition
-      ExecuteInformation(result);
-      if (result == DB_QUIT) {
-        break;
-      }
+    // create buffer for sql input
+    YY_BUFFER_STATE bp = yy_scan_string(cmd);
+    if (bp == nullptr) {
+      LOG(ERROR) << "Failed to create yy buffer state." << std::endl;
+      exit(1);
     }
+    yy_switch_to_buffer(bp);
+
+    // init parser module
+    MinisqlParserInit();
+
+    // parse
+    yyparse();
+
+    // parse result handle
+    if (MinisqlParserGetError()) {
+      // error
+      printf("%s\n", MinisqlParserGetErrorMessage());
+    } else {
+      // Comment them out if you don't need to debug the syntax tree
+      printf("[INFO] Sql syntax parse ok!\n");
+    }
+
+    auto result = Execute(MinisqlGetParserRootNode());
+
+    // clean memory after parse
+    MinisqlParserFinish();
+    yy_delete_buffer(bp);
+    yylex_destroy();
+
+    // quit condition
+    ExecuteInformation(result);
+    if (result == DB_QUIT) {
+      break;
+    }
+  }
+  fin.close();
   return DB_SUCCESS;
 }
 
