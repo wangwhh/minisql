@@ -31,17 +31,15 @@ bool SeqScanExecutor::Next(Row *row, RowId *rid) {
       }
     }
     // 找到了
-    if(plan_->filter_predicate_ == nullptr) {  // 没有where
-      vector<Field> output;
-      for (auto column : plan_->OutputSchema()->GetColumns()) {
-        uint32_t col_idx;
-        table_->GetSchema()->GetColumnIndex(column->GetName(), col_idx);
-        output.push_back(*(*iter_).GetField(col_idx));
-      }
-      *row = Row(output);
-      *rid = (*iter_).GetRowId();
-      iter_++;
-      return true;
+    vector<Field> output;
+    for (auto column : plan_->OutputSchema()->GetColumns()) {
+      uint32_t col_idx;
+      table_->GetSchema()->GetColumnIndex(column->GetName(), col_idx);
+      output.push_back(*(*iter_).GetField(col_idx));
     }
+    *row = Row(output);
+    *rid = (*iter_).GetRowId();
+    iter_++;
+    return true;
   }
 }

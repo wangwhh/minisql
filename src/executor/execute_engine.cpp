@@ -351,7 +351,7 @@ dberr_t ExecuteEngine::ExecuteCreateTable(pSyntaxNode ast, ExecuteContext *conte
 
   while(ptr != nullptr){
     if(ptr->type_ == kNodeColumnDefinitionList){
-      int i = 1;  // 表内index
+      int i = 0;  // 表内index
       auto col_def_ptr = ptr->child_;
       while(col_def_ptr != nullptr){
         string col_name, col_type;
@@ -445,6 +445,12 @@ dberr_t ExecuteEngine::ExecuteDropTable(pSyntaxNode ast, ExecuteContext *context
     return DB_TABLE_NOT_EXIST;
   }
   dbs_[current_db_]->catalog_mgr_->DropTable(table_name);
+  vector<IndexInfo *> index_names;
+  dbs_[current_db_]->catalog_mgr_->GetTableIndexes(table_name, index_names);
+  // 也要删除索引
+  for(auto index_name : index_names){
+    dbs_[current_db_]->catalog_mgr_->DropIndex(table_name, index_name->GetIndexName());
+  }
   end_time = clock();
   cout << "Successfully drop table '" << table_name << "' in " << (double)(end_time - start_time) / CLOCKS_PER_SEC << "sec." << endl;
   return DB_SUCCESS;

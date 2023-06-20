@@ -50,6 +50,8 @@ class DeleteExecutor : public AbstractExecutor {
   std::unique_ptr<AbstractExecutor> child_executor_;
   TableInfo *table_;
   TableHeap *heap_;
+  vector<IndexInfo *>indexes_;
+  Schema *schema_;
 };
 
 #endif  // MINISQL_DELETE_EXECUTOR_H
