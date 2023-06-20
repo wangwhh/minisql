@@ -38,13 +38,15 @@ AbstractPlanNodeRef Planner::PlanSelect(std::shared_ptr<SelectStatement> stateme
   auto out_schema = MakeOutputSchema(statement->column_list_);
   vector<IndexInfo *> indexes;
   vector<IndexInfo *> available_index;
+  vector<uint32_t> column_in_condition = statement->column_in_condition_;
   context_->GetCatalog()->GetTableIndexes(statement->table_name_, indexes);
   for (auto index : indexes) {
     if (index->GetIndexKeySchema()->GetColumns().size() == 1) {
       auto col_id = index->GetIndexKeySchema()->GetColumn(0)->GetTableInd();
-      if (std::find(statement->column_in_condition_.begin(), statement->column_in_condition_.end(), col_id) !=
-          statement->column_in_condition_.end()) {
+      auto it = std::find(column_in_condition.begin(), column_in_condition.end(), col_id);
+      if (it != column_in_condition.end()) {
         available_index.push_back(index);
+        column_in_condition.erase(it);
       }
     }
   }
@@ -52,7 +54,7 @@ AbstractPlanNodeRef Planner::PlanSelect(std::shared_ptr<SelectStatement> stateme
     return make_shared<SeqScanPlanNode>(out_schema, statement->table_name_, statement->where_);
   }
   return make_shared<IndexScanPlanNode>(out_schema, statement->table_name_, available_index,
-                                        available_index.size() != statement->column_in_condition_.size(),
+                                        !column_in_condition.empty(),
                                         statement->where_);
 }
 

@@ -1,4 +1,5 @@
 #include "catalog/catalog.h"
+#include "page/index_roots_page.h"
 
 void CatalogMeta::SerializeTo(char *buf) const {
     ASSERT(GetSerializedSize() <= PAGE_SIZE, "Failed to serialize catalog metadata to disk.");
@@ -133,7 +134,7 @@ dberr_t CatalogManager::CreateTable(const string &table_name, TableSchema *schem
   buffer_pool_manager_->NewPage(page_id);
   page_id_t first_page_id;
   buffer_pool_manager_->NewPage(first_page_id);
-  TableMetadata *table_meta = TableMetadata::Create(++table_id, table_name, first_page_id, schema);
+  TableMetadata *table_meta = TableMetadata::Create(table_id, table_name, first_page_id, schema);
   TableHeap *table_heap = TableHeap::Create(buffer_pool_manager_, schema, txn, log_manager_, lock_manager_);
   table_info = TableInfo::Create();
   table_info->Init(table_meta, table_heap);
@@ -191,19 +192,23 @@ dberr_t CatalogManager::CreateIndex(const std::string &table_name, const string 
 
   page_id_t page_id;
   buffer_pool_manager_->NewPage(page_id);
+  page_id_t root_page_id;
+  buffer_pool_manager_->NewPage(root_page_id);
   index_id_t index_id = catalog_meta_->GetNextIndexId();
-  IndexMetadata *index_meta = IndexMetadata::Create(++index_id, index_name, table_id, key_attr);
+  auto *index_roots_page = reinterpret_cast<IndexRootsPage *>(buffer_pool_manager_->FetchPage(INDEX_ROOTS_PAGE_ID)->GetData());
+  index_roots_page->Insert(index_id, root_page_id);
+  IndexMetadata *index_meta = IndexMetadata::Create(index_id, index_name, table_id, key_attr);
   IndexInfo *new_index = IndexInfo::Create();
   new_index->Init(index_meta, table_info, buffer_pool_manager_);
   index_info = new_index;
   indexes_[index_id] = new_index;
   index_names_[table_name][index_name] = index_id;
   catalog_meta_->index_meta_pages_[index_id] = page_id;
-
   Page* index_page = buffer_pool_manager_->FetchPage(page_id);
   char* buf = index_page->GetData();
   index_meta->SerializeTo(buf);
   buffer_pool_manager_->FlushPage(page_id);
+  buffer_pool_manager_->UnpinPage(page_id, true);
   return DB_SUCCESS;
 }
 

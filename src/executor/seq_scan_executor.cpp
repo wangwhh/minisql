@@ -22,20 +22,23 @@ bool SeqScanExecutor::Next(Row *row, RowId *rid) {
   if(iter_ == heap_->End()){ //如果是结尾
     return false;
   }else{
-    if(plan_->filter_predicate_ == nullptr){  // 没有where
-      *row = *iter_;
-      *rid = (*iter_).GetRowId();
-      iter_++;
-      return true;
-    }else{
+    if(plan_->filter_predicate_ != nullptr){  // 有where
       while( plan_->filter_predicate_->Evaluate(&*iter_).CompareEquals(Field(kTypeInt, 1)) != kTrue ){
         iter_++;
         if(iter_ == heap_->End()){
           return false;
         }
       }
-      // 找到了
-      *row = *iter_;
+    }
+    // 找到了
+    if(plan_->filter_predicate_ == nullptr) {  // 没有where
+      vector<Field> output;
+      for (auto column : plan_->OutputSchema()->GetColumns()) {
+        uint32_t col_idx;
+        table_->GetSchema()->GetColumnIndex(column->GetName(), col_idx);
+        output.push_back(*(*iter_).GetField(col_idx));
+      }
+      *row = Row(output);
       *rid = (*iter_).GetRowId();
       iter_++;
       return true;

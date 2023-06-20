@@ -13,8 +13,18 @@ DeleteExecutor::DeleteExecutor(ExecuteContext *exec_ctx, const DeletePlanNode *p
     : AbstractExecutor(exec_ctx), plan_(plan), child_executor_(std::move(child_executor)) {}
 
 void DeleteExecutor::Init() {
+  exec_ctx_->GetCatalog()->GetTable(plan_->GetTableName(), table_);
+  heap_ = table_->GetTableHeap();
+  child_executor_->Init();
 }
 
 bool DeleteExecutor::Next([[maybe_unused]] Row *row, RowId *rid) {
-  return false;
+  Row delete_row;
+  RowId delete_rid;
+  if(child_executor_->Next(&delete_row, &delete_rid)){
+    heap_->ApplyDelete(delete_rid, exec_ctx_->GetTransaction());
+    return true;
+  }else{
+    return false;
+  }
 }

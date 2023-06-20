@@ -52,8 +52,9 @@ class Field {
     } else {
       if (manage_data) {
         ASSERT(len < VARCHAR_MAX_LEN, "Field length exceeds max varchar length");
-        value_.chars_ = new char[len];
+        value_.chars_ = new char[len+1];
         memcpy(value_.chars_, data, len);
+        value_.chars_[len] = '\0';
       } else {
         value_.chars_ = data;
       }
@@ -68,8 +69,9 @@ class Field {
     is_null_ = other.is_null_;
     manage_data_ = other.manage_data_;
     if (type_id_ == TypeId::kTypeChar && !is_null_ && manage_data_) {
-      value_.chars_ = new char[len_];
+      value_.chars_ = new char[len_+1];
       memcpy(value_.chars_, other.value_.chars_, len_);
+      value_.chars_[len_] = 0;
     } else {
       value_ = other.value_;
     }

@@ -11,9 +11,6 @@ UpdateExecutor::UpdateExecutor(ExecuteContext *exec_ctx, const UpdatePlanNode *p
                                std::unique_ptr<AbstractExecutor> &&child_executor)
     : AbstractExecutor(exec_ctx), plan_(plan), child_executor_(std::move(child_executor)) {}
 
-/**
-* TODO: Student Implement
-*/
 void UpdateExecutor::Init() {
   exec_ctx_->GetCatalog()->GetTable(plan_->GetTableName(), table_);
   heap_ = table_->GetTableHeap();

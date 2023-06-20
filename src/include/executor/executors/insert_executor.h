@@ -49,6 +49,7 @@ class InsertExecutor : public AbstractExecutor {
   TableIterator iter_;
   vector<IndexInfo *> index_info_;
   Index *unique_index_;
+  Schema *schema_;
 };
 
 #endif  // MINISQL_INSERT_EXECUTOR_H

@@ -414,7 +414,11 @@ dberr_t ExecuteEngine::ExecuteCreateTable(pSyntaxNode ast, ExecuteContext *conte
     context->GetCatalog()->CreateIndex(table_name, "primary", primary_keys, context->GetTransaction(), index_info, "bptree");
   }
   if(ret == DB_SUCCESS && !unique_index.empty()){
-    context->GetCatalog()->CreateIndex(table_name, "unique", unique_index, context->GetTransaction(), index_info, "bptree");
+    for(int i=0; i < unique_index.size(); i++){
+      vector<string>key;
+      key.push_back(unique_index[i]);
+      context->GetCatalog()->CreateIndex(table_name, "unique" + to_string(i), key, context->GetTransaction(), index_info, "bptree");
+    }
   }
   end_time = clock();
   if(ret == DB_SUCCESS)
@@ -541,9 +545,6 @@ dberr_t ExecuteEngine::ExecuteCreateIndex(pSyntaxNode ast, ExecuteContext *conte
   return ret;
 }
 
-/**
- * 框架有问题？
- */
 dberr_t ExecuteEngine::ExecuteDropIndex(pSyntaxNode ast, ExecuteContext *context) {
 #ifdef ENABLE_EXECUTE_DEBUG
   LOG(INFO) << "ExecuteDropIndex" << std::endl;

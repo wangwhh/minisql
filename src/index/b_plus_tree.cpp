@@ -14,13 +14,13 @@ BPlusTree::BPlusTree(index_id_t index_id, BufferPoolManager *buffer_pool_manager
       processor_(KM),
       leaf_max_size_(leaf_max_size),
       internal_max_size_(internal_max_size) {
-  auto *indexRootsPage = reinterpret_cast<IndexRootsPage *>(
-      buffer_pool_manager_->FetchPage(INDEX_ROOTS_PAGE_ID)->GetData()
-      );
+  auto *indexRootsPage = reinterpret_cast<IndexRootsPage *>(buffer_pool_manager_->FetchPage(INDEX_ROOTS_PAGE_ID)->GetData());
   if(!indexRootsPage->GetRootId(index_id, &root_page_id_)){
     root_page_id_ = INVALID_PAGE_ID;
   }
   buffer_pool_manager_->UnpinPage(INDEX_ROOTS_PAGE_ID, false);
+  BPlusTreeLeafPage *root_page = reinterpret_cast<BPlusTreeLeafPage *>(buffer_pool_manager_->FetchPage(root_page_id_));
+  root_page->Init(root_page_id_);
 }
 
 void BPlusTree::Destroy(page_id_t current_page_id) {

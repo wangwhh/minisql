@@ -38,6 +38,5 @@ class IndexScanExecutor : public AbstractExecutor {
 
   /** The sequential scan plan node to be executed */
   const IndexScanPlanNode *plan_;
-  TableHeap *heap_;
-  TableIterator iter_;
+  vector<IndexInfo *> indexes_;
 };
