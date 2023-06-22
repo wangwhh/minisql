@@ -43,8 +43,10 @@ dberr_t BPlusTreeIndex::ScanKey(const Row &key, vector<RowId> &result, Transacti
     container_.GetValue(index_key, result, txn);
   } else if (compare_operator == ">") {
     auto iter = GetBeginIterator(index_key);
-    if (container_.GetValue(index_key, result, txn))
+    if (container_.GetValue(index_key, result, txn)){
       ++iter;
+      result.pop_back();
+    }
     for (; iter != GetEndIterator(); ++iter) {
       result.emplace_back((*iter).second);
     }

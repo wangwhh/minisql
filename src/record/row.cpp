@@ -4,6 +4,9 @@ uint32_t Row::SerializeTo(char *buf, Schema *schema) const {
   ASSERT(schema != nullptr, "Invalid schema before serialize.");
   ASSERT(schema->GetColumnCount() == fields_.size(), "Fields size do not match schema's column size.");
   char *buf_p = buf;
+  /*// magic num
+  MACH_WRITE_UINT32(buf_p, ROW_MAGIC_NUM);
+  buf_p += sizeof(uint32_t);*/
   // 写入rid
   MACH_WRITE_TO(RowId, buf_p, rid_);
   buf_p += sizeof(RowId);
@@ -22,22 +25,26 @@ uint32_t Row::DeserializeFrom(char *buf, Schema *schema) {
   ASSERT(schema != nullptr, "Invalid schema before serialize.");
   ASSERT(fields_.empty(), "Non empty field in row.");
   char *buf_p = buf;
+  /*//magic num
+  uint32_t magic_num = MACH_READ_UINT32(buf_p);
+  buf_p += sizeof(uint32_t);
+  assert(magic_num==ROW_MAGIC_NUM);*/
   // 读rid
   rid_ = MACH_READ_FROM(RowId, buf_p);
   buf_p += sizeof(RowId);
   // 读field数
   uint32_t field_num = MACH_READ_UINT32(buf_p);
   buf_p += sizeof(uint32_t);
+  assert(field_num <= schema->GetColumnCount());
   // 读fields
-  while(fields_.size() < schema->GetColumnCount()){
+  while(fields_.size() < field_num){
     fields_.push_back(nullptr);
   }
-  int i=0;
-  for(auto column : schema->GetColumns()){
-    fields_[i] = new Field(column->GetType());
-    buf_p += Field::DeserializeFrom(buf_p, column->GetType(), &fields_[i++], false);
+  for(int i = 0; i < field_num; i++){
+    Column column = schema->GetColumn(i);
+    fields_[i] = new Field(column.GetType());
+    buf_p += Field::DeserializeFrom(buf_p, column.GetType(), &fields_[i], false);
   }
-
   return buf_p - buf;
 }
 

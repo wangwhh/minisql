@@ -90,7 +90,7 @@ Index *IndexInfo::CreateIndex(BufferPoolManager *buffer_pool_manager, const stri
 
   if (index_type == "bptree") {
     if (max_size <= 8)
-      max_size = 16;
+      max_size = 32;
     else if (max_size <= 24)
       max_size = 32;
     else if (max_size <= 56)

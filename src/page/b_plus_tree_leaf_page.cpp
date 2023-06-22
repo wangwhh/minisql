@@ -108,17 +108,23 @@ std::pair<GenericKey *, RowId> LeafPage::GetItem(int index) {
  * @return page size after insertion
  */
 int LeafPage::Insert(GenericKey *key, const RowId &value, const KeyManager &KM) {
+  if(GetSize() == 0){
+    SetKeyAt(0, key);
+    SetValueAt(0, value);
+    IncreaseSize(1);
+    return 1;
+  }
   int index = KeyIndex(key, KM);
-  if(KM.CompareKeys(KeyAt(index),key)==0 && ValueAt(index)==value){
+  if(index != GetSize() && KM.CompareKeys(KeyAt(index),key)==0){
     return GetSize();
   }
-  IncreaseSize(1);
   for(int i=GetSize(); i>index; i--){
     SetValueAt(i, ValueAt(i-1));
     SetKeyAt(i, KeyAt(i-1));
   }
   SetKeyAt(index, key);
   SetValueAt(index, value);
+  IncreaseSize(1);
   return GetSize();
 }
 
@@ -130,7 +136,7 @@ int LeafPage::Insert(GenericKey *key, const RowId &value, const KeyManager &KM) 
  */
 void LeafPage::MoveHalfTo(LeafPage *recipient) {
   int size = GetSize();
-  recipient->CopyNFrom(data_ + size - size/2, size/2);
+  recipient->CopyNFrom(data_ + (size - size/2) * pair_size, size/2);
   IncreaseSize(-size/2);
   recipient->SetNextPageId(GetNextPageId());
   SetNextPageId(recipient->GetPageId());

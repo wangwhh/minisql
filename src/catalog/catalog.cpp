@@ -193,10 +193,12 @@ dberr_t CatalogManager::CreateIndex(const std::string &table_name, const string 
   page_id_t page_id;
   buffer_pool_manager_->NewPage(page_id);
   page_id_t root_page_id;
-  buffer_pool_manager_->NewPage(root_page_id);
+  Page *root_page = buffer_pool_manager_->NewPage(root_page_id);
+  auto leaf_page = reinterpret_cast<BPlusTreeLeafPage *>(root_page->GetData());
   index_id_t index_id = catalog_meta_->GetNextIndexId();
   auto *index_roots_page = reinterpret_cast<IndexRootsPage *>(buffer_pool_manager_->FetchPage(INDEX_ROOTS_PAGE_ID)->GetData());
   index_roots_page->Insert(index_id, root_page_id);
+  buffer_pool_manager_->UnpinPage(INDEX_ROOTS_PAGE_ID, true);
   IndexMetadata *index_meta = IndexMetadata::Create(index_id, index_name, table_id, key_attr);
   IndexInfo *new_index = IndexInfo::Create();
   new_index->Init(index_meta, table_info, buffer_pool_manager_);
@@ -207,8 +209,22 @@ dberr_t CatalogManager::CreateIndex(const std::string &table_name, const string 
   Page* index_page = buffer_pool_manager_->FetchPage(page_id);
   char* buf = index_page->GetData();
   index_meta->SerializeTo(buf);
+
+  //插入entry
+  for(auto iter = table_info->GetTableHeap()->Begin(txn); iter != table_info->GetTableHeap()->End(); iter++){
+    //投影
+    vector<Field> key_field;
+    for (auto column : index_info->GetIndexKeySchema()->GetColumns()) {
+      uint32_t col_idx;
+      table_info->GetSchema()->GetColumnIndex(column->GetName(), col_idx);
+      key_field.push_back(*(*iter).GetField(col_idx));
+    }
+    Row key(key_field);
+    index_info->GetIndex()->InsertEntry(key, (*iter).GetRowId(), txn);
+  }
   buffer_pool_manager_->FlushPage(page_id);
   buffer_pool_manager_->UnpinPage(page_id, true);
+  buffer_pool_manager_->UnpinPage(root_page_id, true);
   return DB_SUCCESS;
 }
 

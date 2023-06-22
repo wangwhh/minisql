@@ -39,4 +39,9 @@ class IndexScanExecutor : public AbstractExecutor {
   /** The sequential scan plan node to be executed */
   const IndexScanPlanNode *plan_;
   vector<IndexInfo *> indexes_;
+  TableInfo *table_;
+  vector<RowId> results_;
+  int time_;
+  void GetResult(ComparisonExpression *cmp_child, vector<RowId> &results);
+  vector<RowId> intersection(const vector<RowId> &a, const vector<RowId> &b);
 };

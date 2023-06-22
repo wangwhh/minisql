@@ -623,7 +623,7 @@ dberr_t ExecuteEngine::ExecuteExecfile(pSyntaxNode ast, ExecuteContext *context)
     return DB_FAILED;
   }
   char cmd[1024];
-  while(fin.getline(cmd, 1024, '\r')) // 一行行sql语句执行
+  while(fin.getline(cmd, 1024, '\n')) // 一行行sql语句执行
   {
     // create buffer for sql input
     YY_BUFFER_STATE bp = yy_scan_string(cmd);

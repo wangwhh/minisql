@@ -56,7 +56,7 @@ void *InternalPage::PairPtrAt(int index) {
 }
 
 void InternalPage::PairCopy(void *dest, void *src, int pair_num) {
-  memcpy(dest, src, pair_num * (GetKeySize() + sizeof(page_id_t)));
+  memcpy(dest, src, pair_num * pair_size);
 }
 /*****************************************************************************
  * LOOKUP
@@ -68,8 +68,7 @@ void InternalPage::PairCopy(void *dest, void *src, int pair_num) {
  * 用了二分查找
  */
 page_id_t InternalPage::Lookup(const GenericKey *key, const KeyManager &KM) {
-  GenericKey *cur_key= nullptr;
-  int i=1, j=GetSize()-1;
+  int i=1, j=GetSize() - 1;
   while(i <= j){
     int mid = (i + j) / 2;
     if(KM.CompareKeys(KeyAt(mid), key) <= 0){
@@ -119,7 +118,7 @@ int InternalPage::InsertNodeAfter(const page_id_t &old_value, GenericKey *new_ke
  */
 void InternalPage::MoveHalfTo(InternalPage *recipient, BufferPoolManager *buffer_pool_manager) {
   int size = GetSize();
-  recipient->CopyNFrom(data_ + size - size/2, size/2, buffer_pool_manager);
+  recipient->CopyNFrom(data_ + (size - size/2) * pair_size, size/2, buffer_pool_manager);
   IncreaseSize(-size/2);
 }
 
