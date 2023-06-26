@@ -1,7 +1,5 @@
 本程序为浙江大学2023年数据库系统课程MiniSQL大程
 
-作者：WJY
-
 模板链接：[ZJUCSDB-MiniSQL (yuque.com)](https://www.yuque.com/yingchengjun/minisql)
 
 还有BUG但我不想再调试了（大致在删除表那里
